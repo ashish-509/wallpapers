@@ -19,7 +19,15 @@ impl DownloadClient {
         let client = reqwest::Client::builder()
             .user_agent(USER_AGENT)
             .timeout(std::time::Duration::from_mins(5))
-            .redirect(reqwest::redirect::Policy::limited(3))
+            .redirect(reqwest::redirect::Policy::custom(|attempt| {
+                if attempt.previous().len() > 3 {
+                    attempt.error("too many media redirects")
+                } else if !is_trusted_url(attempt.url()) {
+                    attempt.error("media redirect left upload.wikimedia.org")
+                } else {
+                    attempt.follow()
+                }
+            }))
             .build()?;
         Ok(Self { client, max_bytes })
     }
@@ -40,6 +48,9 @@ impl DownloadClient {
             .send()
             .await?
             .error_for_status()?;
+        if !is_trusted_url(response.url()) {
+            return Err(DownloadError::InvalidUrl);
+        }
         if response
             .headers()
             .get(CONTENT_LENGTH)
@@ -86,17 +97,17 @@ impl DownloadClient {
 
 fn validate_url(value: &str) -> Result<(), DownloadError> {
     let url = Url::parse(value).map_err(|_| DownloadError::InvalidUrl)?;
-    let trusted_host = url
-        .host_str()
-        .is_some_and(|host| host == "upload.wikimedia.org");
-    if url.scheme() != "https"
-        || !trusted_host
-        || !url.username().is_empty()
-        || url.password().is_some()
-    {
+    if !is_trusted_url(&url) {
         return Err(DownloadError::InvalidUrl);
     }
     Ok(())
+}
+
+fn is_trusted_url(url: &Url) -> bool {
+    url.scheme() == "https"
+        && url.host_str() == Some("upload.wikimedia.org")
+        && url.username().is_empty()
+        && url.password().is_none()
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -130,5 +141,8 @@ mod tests {
         assert!(validate_url("http://upload.wikimedia.org/rain.webm").is_err());
         assert!(validate_url("https://example.com/rain.webm").is_err());
         assert!(validate_url("https://user@upload.wikimedia.org/rain.webm").is_err());
+        assert!(!is_trusted_url(
+            &Url::parse("https://upload.wikimedia.org.evil.example/rain.webm").unwrap()
+        ));
     }
 }

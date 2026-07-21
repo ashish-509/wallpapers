@@ -1,0 +1,26 @@
+.wallpaper-card {
+  border-radius: 8px;
+  background: color-mix(in srgb, @card_bg_color 94%, @accent_bg_color 6%);
+  box-shadow: 0 1px 3px alpha(black, 0.16);
+}
+
+.wallpaper-card:hover {
+  box-shadow: 0 2px 8px alpha(black, 0.22);
+}
+
+.tile-copy {
+  padding: 10px 12px 12px;
+}
+
+.preview-surface {
+  border-radius: 8px;
+  background: #17191b;
+}
+
+.detail-pane {
+  background: color-mix(in srgb, @window_bg_color 94%, @card_bg_color 6%);
+}
+
+.mode-switcher button {
+  min-width: 88px;
+}
