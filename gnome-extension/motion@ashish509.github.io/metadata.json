@@ -1,0 +1,9 @@
+{
+  "uuid": "motion@ashish509.github.io",
+  "name": "Motion Live Wallpaper",
+  "description": "Renders Motion video wallpapers on the GNOME desktop",
+  "shell-version": ["49", "50"],
+  "settings-schema": "io.github.ashish509.Motion",
+  "url": "https://github.com/ashish-509/wallpapers",
+  "version": 1
+}

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="io.github.ashish509.Motion" path="/io/github/ashish509/Motion/">
+    <key name="active-file" type="s">
+      <default>''</default>
+      <summary>Active optimized wallpaper file</summary>
+    </key>
+    <key name="renderer-command" type="s">
+      <default>'motion-renderer'</default>
+      <summary>Renderer executable</summary>
+    </key>
+    <key name="pause-fullscreen" type="b">
+      <default>true</default>
+      <summary>Pause for fullscreen applications</summary>
+    </key>
+    <key name="pause-game-mode" type="b">
+      <default>true</default>
+      <summary>Pause while GameMode is active</summary>
+    </key>
+    <key name="pause-power-saver" type="b">
+      <default>true</default>
+      <summary>Pause while power saver is active</summary>
+    </key>
+    <key name="pause-low-battery" type="b">
+      <default>true</default>
+      <summary>Pause when battery charge is low</summary>
+    </key>
+    <key name="low-battery-threshold" type="u">
+      <range min="5" max="50"/>
+      <default>15</default>
+      <summary>Low battery threshold</summary>
+    </key>
+    <key name="cache-limit-gb" type="u">
+      <range min="1" max="100"/>
+      <default>10</default>
+      <summary>Cache size limit in gigabytes</summary>
+    </key>
+    <key name="refresh-hours" type="u">
+      <range min="1" max="168"/>
+      <default>24</default>
+      <summary>Hours between automatic library updates</summary>
+    </key>
+  </schema>
+</schemalist>
