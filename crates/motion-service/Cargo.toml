@@ -7,14 +7,20 @@ repository.workspace = true
 
 [dependencies]
 async-trait = "0.1"
+futures-util = "0.3"
 motion-core = { path = "../motion-core" }
-reqwest = { version = "0.12", default-features = false, features = ["gzip", "http2", "json", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["gzip", "http2", "json", "rustls-tls", "stream"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
 scraper = { version = "0.24", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
 thiserror = "2.0"
+tokio = { version = "1.53", features = ["fs", "io-util", "process"] }
+url = "2.5"
 
 [dev-dependencies]
-serde_json = "1.0"
+tempfile = "3.27"
 
 [lints]
 workspace = true
