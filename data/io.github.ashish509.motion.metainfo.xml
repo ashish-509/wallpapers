@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.ashish509.motion</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Motion</name>
+  <summary>Live wallpapers for GNOME on Wayland</summary>
+  <description>
+    <p>
+      Motion discovers freely reusable videos from Wikimedia Commons, preserves
+      creator and license attribution, optimizes media for desktop playback, and
+      applies it as a GNOME live wallpaper.
+    </p>
+    <p>
+      Search results are restricted to supported public-domain and Creative
+      Commons licenses. Favorites, playlists, automatic rotation, cache limits,
+      and resource-aware pause policies are stored locally.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.ashish509.motion.desktop</launchable>
+  <developer id="io.github.ashish509">
+    <name>Ashish</name>
+  </developer>
+  <url type="homepage">https://github.com/ashish-509/wallpapers</url>
+  <url type="bugtracker">https://github.com/ashish-509/wallpapers/issues</url>
+  <url type="vcs-browser">https://github.com/ashish-509/wallpapers</url>
+  <provides>
+    <binary>motion-app</binary>
+  </provides>
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+  </supports>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.1.0" date="2026-07-21">
+      <description>
+        <p>Initial preview with licensed discovery, playlists, scheduling, and GNOME Shell rendering.</p>
+      </description>
+    </release>
+  </releases>
+</component>

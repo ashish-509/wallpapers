@@ -9,29 +9,35 @@ join GNOME Shell's background layer on Wayland.
 
 ```mermaid
 flowchart LR
-    UI[GTK4 and Libadwaita app] --> Service[Background service]
-    Service --> Core[Domain core]
-    Service --> Store[SQLite catalog]
-    Service --> Cache[Content addressed cache]
-    Service --> Media[FFmpeg optimizer]
-    Service --> Shell[GNOME Shell extension]
-    Sources[Source connectors] --> Service
-    Shell --> Gst[GStreamer hardware decoder]
+    UI[GTK4 and Libadwaita app] --> Library[motion-service library]
+    Timer[systemd user timer] --> Maintenance[motion-app maintenance mode]
+    Maintenance --> Library
+    Library --> Core[Domain core]
+    Library --> Store[SQLite catalog]
+    Library --> Cache[Content-addressed cache]
+    Library --> Media[FFmpeg optimizer]
+    Sources[Source connectors] --> Library
+    UI --> Settings[GSettings active file]
+    Maintenance --> Settings
+    Settings --> Shell[GNOME Shell extension]
+    Shell --> Renderer[GTK GStreamer renderer]
 ```
 
 `motion-core` contains source neutral models and deterministic policy. It has no
 GTK, network, database, process, or desktop dependencies.
 
-`motion-service` will perform serialized network requests, downloads, catalog
-updates, cache cleanup, schedules, and desktop session monitoring. Expensive work
-runs only after an explicit request or a low frequency timer.
+`motion-service` performs network requests, bounded downloads, catalog updates,
+cache cleanup, and media optimization. It is a Rust library used by both the UI
+and the headless maintenance mode, not a resident daemon.
 
-`motion-gtk` will provide the native adaptive interface. It talks to the service
-over D-Bus so closing the window does not stop schedules or playback policy.
+`motion-app` provides the native adaptive interface. `motion-app --maintenance`
+refreshes saved searches, rotates locally available wallpapers, and enforces the
+cache limit. A low-frequency systemd user timer invokes it after the UI closes.
 
-`gnome-extension` will create one background actor per monitor and play the active
-local file through GStreamer. The service controls it over D-Bus. This boundary is
-required for GNOME Wayland and keeps shell code small.
+`motion-renderer` opens one shared GTK media stream and one surface per monitor.
+`gnome-extension` launches it as a compositor-owned Wayland client, clones those
+surfaces into GNOME background actors, and controls play and pause over the
+renderer application action group. This boundary is required on GNOME Wayland.
 
 ## Source policy
 
@@ -40,38 +46,37 @@ support programmatic reuse, but every media item has its own license. The connec
 accepts only public domain, CC0, CC BY, and CC BY-SA video, stores the creator and
 license fields, and exposes attribution in the UI. Unknown licenses are rejected.
 
-Requests use a descriptive user agent, gzip, `maxlag`, serial pagination, caching,
-and exponential backoff. Third party services are not added until their current
-API terms explicitly allow an automated wallpaper browser. Local file import is a
-separate connector and never infers reuse rights.
+Requests use a descriptive user agent, gzip, `maxlag`, small result limits, bounded
+parallel preview downloads, and cached results. Third-party services are not added
+until their current API terms explicitly allow an automated wallpaper browser.
 
 ## Media pipeline
 
 Original downloads are temporary. FFmpeg validates the input, drops audio, limits
-output to 1920 by 1080 and 30 FPS, and encodes VP9 WebM by default. A hardware H.264
-path is optional when VA-API is available. Thumbnails are seeked JPEG frames. Cache
-entries use a source ID plus content digest and are committed with atomic renames.
+output to 1920 by 1080 and 30 FPS, and encodes VP9 WebM. Thumbnails are seeked JPEG
+frames. Downloads are content-addressed and optimized files are committed with
+atomic renames.
 
-The original is removed after successful optimization. Favorites, playlist items,
-and the active wallpaper are pinned. Least recently used unpinned files are deleted
-when the configured storage limit is exceeded.
+The original is removed after optimization succeeds or fails. Favorites, playlist
+items, and the active wallpaper are pinned. Least recently used unpinned files are
+deleted when the configured storage limit is exceeded.
 
 ## Runtime policy
 
 Playback pauses when GNOME reports a fullscreen window, GameMode is active, power
 saver is active, or battery charge crosses the configured threshold. Conditions
 are event driven over D-Bus, not polled. The extension requests hardware decoding
-from GStreamer and keeps a single pipeline per monitor. Idle service work is timer
-driven, with no busy loops.
+from GStreamer and shares one media stream across monitor surfaces. Idle work is
+timer driven, with no busy loops.
 
-The service stores the last active item and starts through a systemd user unit after
-the graphical session. Schedules and random mode select only locally available,
-licensed items. User actions always override background changes.
+The catalog stores the last active item. GNOME restores it through the persisted
+GSettings active file, while systemd starts only short-lived maintenance work.
+Rotation and random mode select only locally available, licensed items.
 
 ## Delivery
 
-The Flatpak package includes the app and service but installs the GNOME Shell
-extension through the supported extension workflow. The Fedora RPM installs the
-binary, desktop metadata, systemd user unit, and extension. CI runs formatting,
-Clippy, unit tests, integration tests with mock HTTP and D-Bus peers, Meson builds,
-Flatpak manifest validation, and RPM builds.
+The Fedora RPM installs both binaries, desktop metadata, the GSettings schema,
+systemd user timer, and Shell extension. The Flatpak contains the app and renderer;
+its host integration helper installs the Shell extension, schema, and a timer that
+invokes Flatpak maintenance. CI runs formatting, strict Clippy, tests, metadata and
+extension validation, and package builds.

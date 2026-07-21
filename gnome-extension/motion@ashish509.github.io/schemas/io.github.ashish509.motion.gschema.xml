@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
-  <schema id="io.github.ashish509.Motion" path="/io/github/ashish509/Motion/">
+  <schema id="io.github.ashish509.motion" path="/io/github/ashish509/motion/">
     <key name="active-file" type="s">
       <default>''</default>
       <summary>Active optimized wallpaper file</summary>
     </key>
-    <key name="renderer-command" type="s">
-      <default>'motion-renderer'</default>
-      <summary>Renderer executable</summary>
+    <key name="renderer-command" type="as">
+      <default>['motion-renderer']</default>
+      <summary>Renderer command and arguments</summary>
     </key>
     <key name="pause-fullscreen" type="b">
       <default>true</default>

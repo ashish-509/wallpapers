@@ -1,0 +1,12 @@
+[Unit]
+Description=Run Motion wallpaper maintenance hourly
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1h
+RandomizedDelaySec=10min
+Persistent=true
+Unit=motion-maintenance.service
+
+[Install]
+WantedBy=timers.target

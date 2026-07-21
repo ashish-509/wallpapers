@@ -5,7 +5,7 @@ mod operations;
 mod paths;
 mod ui;
 
-const APPLICATION_ID: &str = "io.github.ashish509.Motion";
+const APPLICATION_ID: &str = "io.github.ashish509.motion";
 
 fn main() -> glib::ExitCode {
     if std::env::args().any(|argument| argument == "--maintenance") {

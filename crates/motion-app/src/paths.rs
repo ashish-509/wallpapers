@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::Result;
 use gtk::glib;
 
-const DIRECTORY_NAME: &str = "io.github.ashish509.Motion";
+const DIRECTORY_NAME: &str = "io.github.ashish509.motion";
 
 #[derive(Clone, Debug)]
 pub struct AppPaths {

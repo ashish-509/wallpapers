@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Motion
+Comment=Discover and apply reusable live wallpapers
+Exec=motion-app
+Icon=io.github.ashish509.motion
+Terminal=false
+Categories=GNOME;GTK;Utility;
+Keywords=wallpaper;background;video;live;GNOME;
+StartupNotify=true
+DBusActivatable=false

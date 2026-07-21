@@ -28,8 +28,8 @@ export default class MotionExtension extends Extension {
 
     _launch() {
         const file = this._settings.get_string('active-file');
-        const command = this._settings.get_string('renderer-command');
-        if (!file || !command || !Gio.File.new_for_path(file).query_exists(null))
+        const command = this._settings.get_strv('renderer-command');
+        if (!file || command.length === 0 || !Gio.File.new_for_path(file).query_exists(null))
             return;
 
         const client = new RendererClient(() => {

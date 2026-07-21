@@ -3,7 +3,7 @@
   "name": "Motion Live Wallpaper",
   "description": "Renders Motion video wallpapers on the GNOME desktop",
   "shell-version": ["49", "50"],
-  "settings-schema": "io.github.ashish509.Motion",
+  "settings-schema": "io.github.ashish509.motion",
   "url": "https://github.com/ashish-509/wallpapers",
   "version": 1
 }

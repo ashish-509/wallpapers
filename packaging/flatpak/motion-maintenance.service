@@ -1,0 +1,13 @@
+[Unit]
+Description=Refresh and rotate Flatpak Motion live wallpapers
+Documentation=https://github.com/ashish-509/wallpapers
+After=graphical-session.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/flatpak run io.github.ashish509.motion --maintenance
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=15min
+NoNewPrivileges=true

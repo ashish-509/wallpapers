@@ -13,7 +13,7 @@ export class RendererClient {
             flags: Gio.SubprocessFlags.STDOUT_SILENCE |
                 Gio.SubprocessFlags.STDERR_SILENCE,
         });
-        const argv = [command, '--file', file];
+        const argv = [...command, '--file', file];
         this._waylandClient = Meta.WaylandClient.new_subprocess(
             global.context,
             launcher,

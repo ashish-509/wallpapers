@@ -1,0 +1,42 @@
+app-id: io.github.ashish509.motion
+runtime: org.gnome.Platform
+runtime-version: '50'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: motion-app
+
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/motion/cargo
+
+modules:
+  - name: motion
+    buildsystem: simple
+    build-commands:
+      - cargo build --release --frozen --offline -p motion-app -p motion-renderer
+      - install -Dm0755 target/release/motion-app /app/bin/motion-app
+      - install -Dm0755 target/release/motion-renderer /app/bin/motion-renderer
+      - install -Dm0644 data/io.github.ashish509.motion.desktop /app/share/applications/io.github.ashish509.motion.desktop
+      - install -Dm0644 data/io.github.ashish509.motion.metainfo.xml /app/share/metainfo/io.github.ashish509.motion.metainfo.xml
+      - install -Dm0644 data/icons/hicolor/scalable/apps/io.github.ashish509.motion.svg /app/share/icons/hicolor/scalable/apps/io.github.ashish509.motion.svg
+      - install -Dm0644 gnome-extension/motion@ashish509.github.io/schemas/io.github.ashish509.motion.gschema.xml /app/share/glib-2.0/schemas/io.github.ashish509.motion.gschema.xml
+      - glib-compile-schemas /app/share/glib-2.0/schemas
+      - install -Dm0644 LICENSE /app/share/licenses/io.github.ashish509.motion/LICENSE
+    sources:
+      - type: dir
+        path: ../..
+        skip:
+          - .git
+          - .flatpak-builder
+          - build
+          - target
+      - cargo-sources.json

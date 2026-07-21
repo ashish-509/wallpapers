@@ -1,0 +1,18 @@
+[Unit]
+Description=Refresh and rotate Motion live wallpapers
+Documentation=https://github.com/ashish-509/wallpapers
+After=graphical-session.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/motion-app --maintenance
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=15min
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+CacheDirectory=io.github.ashish509.motion
+ReadWritePaths=%h/.local/share
+NoNewPrivileges=true

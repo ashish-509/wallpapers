@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use gtk::prelude::*;
 use gtk::{gdk, gio, glib};
 
-const APPLICATION_ID: &str = "io.github.ashish509.Motion.Renderer";
+const APPLICATION_ID: &str = "io.github.ashish509.motion.Renderer";
 
 fn main() -> glib::ExitCode {
     let Some(path) = wallpaper_path() else {
@@ -92,6 +92,6 @@ mod tests {
 
     #[test]
     fn renderer_id_is_stable_for_shell_matching() {
-        assert_eq!(APPLICATION_ID, "io.github.ashish509.Motion.Renderer");
+        assert_eq!(APPLICATION_ID, "io.github.ashish509.motion.Renderer");
     }
 }

@@ -12,7 +12,7 @@ use motion_service::{
 
 use crate::paths::AppPaths;
 
-const SETTINGS_ID: &str = "io.github.ashish509.Motion";
+const SETTINGS_ID: &str = "io.github.ashish509.motion";
 const MAX_MEDIA_BYTES: u64 = 1024 * 1024 * 1024;
 const MAX_PREVIEW_BYTES: u64 = 8 * 1024 * 1024;
 

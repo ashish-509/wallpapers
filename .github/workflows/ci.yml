@@ -1,0 +1,127 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Rust and metadata
+    runs-on: ubuntu-24.04
+    container: fedora:43
+    timeout-minutes: 30
+    steps:
+      - name: Install dependencies
+        run: >-
+          dnf install -y
+          appstream cargo clippy desktop-file-utils gcc git glib2-devel
+          gnome-shell gtk4-devel libadwaita-devel nodejs rust rustfmt
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Check formatting
+        run: cargo fmt --all --check
+      - name: Run tests
+        run: cargo test --workspace --locked
+      - name: Run strict Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Validate application metadata
+        run: |
+          desktop-file-validate data/io.github.ashish509.motion.desktop
+          appstreamcli validate --no-net data/io.github.ashish509.motion.metainfo.xml
+      - name: Validate GNOME Shell extension
+        run: |
+          mkdir -p build/schemas build/extension
+          cp gnome-extension/motion@ashish509.github.io/schemas/*.xml build/schemas/
+          glib-compile-schemas --strict build/schemas
+          python3 -m json.tool gnome-extension/motion@ashish509.github.io/metadata.json >/dev/null
+          for javascript_file in gnome-extension/motion@ashish509.github.io/*.js; do
+            node --check "$javascript_file"
+          done
+          gnome-extensions pack --force --out-dir build/extension \
+            --extra-source=constants.js \
+            --extra-source=policy.js \
+            --extra-source=renderer.js \
+            --extra-source=wallpaper.js \
+            gnome-extension/motion@ashish509.github.io
+          python3 - <<'PY'
+          from zipfile import ZipFile
+
+          expected = {
+              "constants.js",
+              "extension.js",
+              "metadata.json",
+              "policy.js",
+              "renderer.js",
+              "wallpaper.js",
+          }
+          with ZipFile("build/extension/motion@ashish509.github.io.shell-extension.zip") as archive:
+              assert expected <= set(archive.namelist())
+          PY
+
+  rpm:
+    name: Fedora RPM
+    runs-on: ubuntu-24.04
+    container: fedora:43
+    timeout-minutes: 45
+    steps:
+      - name: Install dependencies
+        run: >-
+          dnf install -y
+          appstream cargo desktop-file-utils gcc git glib2-devel gtk4-devel
+          libadwaita-devel rpm-build rust systemd-rpm-macros xz
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Build packages
+        run: ./scripts/build-rpm.sh
+      - name: Inspect packages
+        run: |
+          rpm_file=$(find build/rpm/RPMS -type f -name 'motion-live-wallpaper-[0-9]*.rpm' -print -quit)
+          test -n "$rpm_file"
+          test -n "$(find build/rpm/SRPMS -type f -name 'motion-live-wallpaper-*.src.rpm' -print -quit)"
+          rpm -Kv "$rpm_file"
+          rpm -qlp "$rpm_file" | grep -Fx /usr/bin/motion-app
+          rpm -qlp "$rpm_file" | grep -Fx /usr/bin/motion-renderer
+          rpm -qRp "$rpm_file" | grep -Fx gstreamer1-plugins-good
+
+  flatpak:
+    name: Flatpak
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Install Flatpak Builder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+      - name: Install SDK
+        run: |
+          flatpak remote-add --user --if-not-exists flathub \
+            https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user --noninteractive flathub \
+            org.gnome.Sdk//50 \
+            org.freedesktop.Sdk.Extension.rust-stable//25.08
+      - name: Build Flatpak
+        run: >-
+          flatpak-builder --user --force-clean --disable-rofiles-fuse
+          build/flatpak packaging/flatpak/io.github.ashish509.motion.yml
+      - name: Smoke-test maintenance
+        run: |
+          mkdir -p /tmp/motion-flatpak-smoke/data /tmp/motion-flatpak-smoke/cache
+          flatpak-builder --run \
+            --env=XDG_DATA_HOME=/tmp/motion-flatpak-smoke/data \
+            --env=XDG_CACHE_HOME=/tmp/motion-flatpak-smoke/cache \
+            build/flatpak packaging/flatpak/io.github.ashish509.motion.yml \
+            motion-app --maintenance
+          test -s /tmp/motion-flatpak-smoke/data/io.github.ashish509.motion/library.sqlite3
+          test -d /tmp/motion-flatpak-smoke/cache/io.github.ashish509.motion/downloads
+          test -d /tmp/motion-flatpak-smoke/cache/io.github.ashish509.motion/media
+          test -d /tmp/motion-flatpak-smoke/cache/io.github.ashish509.motion/previews
