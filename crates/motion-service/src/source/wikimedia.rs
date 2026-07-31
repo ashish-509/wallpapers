@@ -88,7 +88,9 @@ fn parse_page(page: ApiPage) -> Option<RemoteWallpaper> {
         return None;
     }
     let license_name = metadata.get("LicenseShortName")?.text();
-    let license_url = metadata.get("LicenseUrl")?.value.clone();
+    let license_url = metadata
+        .get("LicenseUrl")
+        .map_or_else(String::new, |value| value.value.clone());
     let license = License::from_commons(license_name, license_url).ok()?;
     let title = metadata
         .get("ObjectName")
@@ -206,6 +208,16 @@ mod tests {
             "LicenseShortName": {"value": "All rights reserved"},
             "LicenseUrl": {"value": "https://example.com/terms"}
           }
+        }]},
+        {"pageid": 44, "title": "File:Black holes.webm", "imageinfo": [{
+          "url": "https://upload.wikimedia.org/black_holes.webm",
+          "descriptionurl": "https://commons.wikimedia.org/wiki/File:Black_holes.webm",
+          "thumburl": "https://upload.wikimedia.org/black_holes.jpg",
+          "mime": "video/webm",
+          "extmetadata": {
+            "Artist": {"value": "NASA's Goddard Space Flight Center"},
+            "LicenseShortName": {"value": "Public domain"}
+          }
         }]}
       ]}
     }"#;
@@ -214,9 +226,20 @@ mod tests {
     fn parses_attributed_free_video_and_rejects_non_free_results() {
         let response = serde_json::from_str::<ApiResponse>(RESPONSE).unwrap();
         let wallpapers = WikimediaCommons::parse(response);
-        assert_eq!(wallpapers.len(), 1);
+        assert_eq!(wallpapers.len(), 2);
         assert_eq!(wallpapers[0].title, "Summer rain");
         assert_eq!(wallpapers[0].author, "Example Author");
         assert_eq!(wallpapers[0].categories, vec!["Rain", "Nature"]);
+    }
+
+    #[test]
+    fn accepts_public_domain_video_without_license_url() {
+        let response = serde_json::from_str::<ApiResponse>(RESPONSE).unwrap();
+        let wallpapers = WikimediaCommons::parse(response);
+        let public_domain = &wallpapers[1];
+        assert_eq!(public_domain.title, "Black holes");
+        assert_eq!(public_domain.license.name, "Public domain");
+        assert_eq!(public_domain.license.url, "");
+        assert!(!public_domain.license.attribution_required);
     }
 }
