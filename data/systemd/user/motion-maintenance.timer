@@ -3,7 +3,10 @@ Description=Run Motion wallpaper maintenance hourly
 
 [Timer]
 OnBootSec=5min
-OnUnitActiveSec=1h
+# The service is Type=oneshot and never enters the "active" state, so
+# OnUnitActiveSec= never re-armed the timer after the first run. A calendar
+# schedule re-arms regardless of unit state.
+OnCalendar=hourly
 RandomizedDelaySec=10min
 Persistent=true
 Unit=motion-maintenance.service
