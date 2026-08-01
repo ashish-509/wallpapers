@@ -59,6 +59,27 @@ fn build_windows(application: &gtk::Application, path: &PathBuf) {
     });
     application.add_action(&play);
 
+    // Swap the wallpaper in place so the extension never has to relaunch the
+    // renderer on rotation; relaunching left the static desktop wallpaper
+    // visible during the gap between the old and new renderer windows.
+    let set_file = gio::SimpleAction::new("set-file", Some(glib::VariantTy::STRING));
+    set_file.connect_activate({
+        let media = media.clone();
+        move |_, parameter| {
+            let Some(path) = parameter.and_then(glib::Variant::str) else {
+                return;
+            };
+            if !PathBuf::from(path).is_file() {
+                return;
+            }
+            media.set_filename(Some(path));
+            media.set_loop(true);
+            media.set_muted(true);
+            media.play();
+        }
+    });
+    application.add_action(&set_file);
+
     let monitors = display.monitors();
     for index in 0..monitors.n_items() {
         let Some(monitor) = monitors
@@ -71,14 +92,17 @@ fn build_windows(application: &gtk::Application, path: &PathBuf) {
         picture.set_content_fit(gtk::ContentFit::Cover);
         picture.set_can_shrink(true);
 
-        let offload = gtk::GraphicsOffload::new(Some(&picture));
-        offload.set_enabled(gtk::GraphicsOffloadEnabled::Enabled);
-
+        // The GNOME extension hides this window (minimized) and clones its actor
+        // onto the desktop background. GraphicsOffload delegates the video to a
+        // dedicated Wayland subsurface for direct scan-out, which the compositor
+        // stops updating while the window is hidden and which the background clone
+        // cannot reproduce, leaving a frozen frame. Compositing the video into the
+        // window's own buffer lets Mutter keep it rendering via its cloned actor.
         let window = gtk::ApplicationWindow::builder()
             .application(application)
             .decorated(false)
             .title(format!("@{APPLICATION_ID}|{index}"))
-            .child(&offload)
+            .child(&picture)
             .build();
         window.fullscreen_on_monitor(&monitor);
         window.present();
