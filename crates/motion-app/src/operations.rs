@@ -7,7 +7,8 @@ use futures_util::{StreamExt, stream};
 use gtk::{gio, prelude::*};
 use motion_core::{RemoteWallpaper, eviction_plan};
 use motion_service::{
-    Catalog, CatalogItem, DownloadClient, MediaOptimizer, SourceConnector, WikimediaCommons,
+    Catalog, CatalogItem, DownloadClient, MediaOptimizer, RotationSettings, SourceConnector,
+    WikimediaCommons,
 };
 
 use crate::paths::AppPaths;
@@ -97,6 +98,15 @@ pub fn settings() -> Option<gio::Settings> {
     ))
 }
 
+/// Headless toggle of the live wallpaper engine, for a global keyboard shortcut.
+pub fn run_toggle(_paths: &AppPaths) -> Result<()> {
+    let settings = settings().context("the Motion settings schema is not installed")?;
+    let enabled = !settings.boolean("enabled");
+    settings.set_boolean("enabled", enabled)?;
+    gio::Settings::sync();
+    Ok(())
+}
+
 pub fn apply(
     catalog: &Catalog,
     settings: &gio::Settings,
@@ -116,6 +126,92 @@ pub fn apply(
     settings.set_string("active-file", path)?;
     catalog.set_last_active(&item.id)?;
     catalog.mark_used(&item.id, used_at)?;
+    Ok(())
+}
+
+/// Advances to the next wallpaper in the active playlist and applies it
+/// immediately, resetting the rotation clock so the timer counts from now.
+pub fn apply_next(
+    catalog: &Catalog,
+    settings: &gio::Settings,
+    now: u64,
+) -> Result<Option<CatalogItem>> {
+    apply_step(catalog, settings, now, true)
+}
+
+/// Returns to the previous wallpaper in the active playlist and applies it
+/// immediately, resetting the rotation clock so the timer counts from now.
+pub fn apply_prev(
+    catalog: &Catalog,
+    settings: &gio::Settings,
+    now: u64,
+) -> Result<Option<CatalogItem>> {
+    apply_step(catalog, settings, now, false)
+}
+
+fn apply_step(
+    catalog: &Catalog,
+    settings: &gio::Settings,
+    now: u64,
+    forward: bool,
+) -> Result<Option<CatalogItem>> {
+    let mut rotation = catalog.rotation()?;
+    let Some(item) = neighbour(catalog, &rotation, forward)? else {
+        return Ok(None);
+    };
+    apply(catalog, settings, &item, now)?;
+    rotation.last_change_epoch = now;
+    catalog.set_rotation(&rotation)?;
+    // Flush the queued active-file write so the extension reacts immediately.
+    gio::Settings::sync();
+    Ok(Some(item))
+}
+
+/// Picks the wallpaper before or after the current one in playlist order,
+/// wrapping around at the ends. Falls back to any available wallpaper when no
+/// ordered playlist is configured.
+fn neighbour(
+    catalog: &Catalog,
+    rotation: &RotationSettings,
+    forward: bool,
+) -> Result<Option<CatalogItem>> {
+    let Some(playlist_id) = rotation.playlist_id else {
+        return Ok(catalog.next_available(None, rotation.random)?);
+    };
+    let items: Vec<CatalogItem> = catalog
+        .playlist_items(playlist_id)?
+        .into_iter()
+        .filter(|item| item.local_path.as_deref().is_some_and(Path::is_file))
+        .collect();
+    if items.is_empty() {
+        return Ok(None);
+    }
+    let active = catalog.last_active()?.unwrap_or_default();
+    let current = items.iter().position(|item| item.id == active);
+    let length = items.len();
+    let index = match current {
+        Some(index) if forward => (index + 1) % length,
+        Some(index) => (index + length - 1) % length,
+        None => 0,
+    };
+    Ok(Some(items[index].clone()))
+}
+
+/// Headless entry point for the `--next` / `--prev` CLI flags: switches the
+/// desktop wallpaper without opening the window (used by global shortcuts).
+pub fn run_step(paths: &AppPaths, forward: bool) -> Result<()> {
+    let catalog = Catalog::open(&paths.database)?;
+    let settings = settings().context("Motion GSettings schema is not installed")?;
+    let now = now_epoch();
+    let result = if forward {
+        apply_next(&catalog, &settings, now)?
+    } else {
+        apply_prev(&catalog, &settings, now)?
+    };
+    match result {
+        Some(item) => println!("now playing: {}", item.wallpaper.title),
+        None => eprintln!("no other wallpaper is available to switch to"),
+    }
     Ok(())
 }
 
@@ -178,6 +274,9 @@ pub fn run_maintenance(paths: &AppPaths) -> Result<()> {
         apply(&catalog, settings, &item, now)?;
         rotation.last_change_epoch = now;
         catalog.set_rotation(&rotation)?;
+        // Without a main loop the process would exit before the settings
+        // backend flushes the queued active-file write.
+        gio::Settings::sync();
     }
     let cache_limit = u64::from(settings.map_or(10, |settings| settings.uint("cache-limit-gb")));
     enforce_cache_limit(&catalog, cache_limit * 1024_u64 * 1024 * 1024)
