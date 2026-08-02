@@ -9,6 +9,11 @@
       <default>['motion-renderer']</default>
       <summary>Renderer command and arguments</summary>
     </key>
+    <key name="enabled" type="b">
+      <default>true</default>
+      <summary>Run the live wallpaper engine</summary>
+      <description>When off, the renderer is stopped and the static desktop wallpaper is shown. Useful to save battery.</description>
+    </key>
     <key name="pause-fullscreen" type="b">
       <default>true</default>
       <summary>Pause for fullscreen applications</summary>

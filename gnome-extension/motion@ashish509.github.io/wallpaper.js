@@ -55,7 +55,11 @@ class LiveWallpaper extends St.Widget {
         if (!source)
             return false;
 
-        this._clone = new Clutter.Clone({source});
+        this._clone = new Clutter.Clone({
+            source,
+            x_expand: true,
+            y_expand: true,
+        });
         this.add_child(this._clone);
         this._sourceDestroyId = source.connect('destroy', () => {
             this._clone?.destroy();

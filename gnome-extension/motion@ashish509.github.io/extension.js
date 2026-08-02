@@ -20,13 +20,16 @@ export default class MotionExtension extends Extension {
             this._syncPlayback();
         });
         this._policy.enable();
-        this._activeId = this._settings.connect('changed::active-file', () => this._restart());
+        this._activeId = this._settings.connect('changed::active-file', () => this._updateFile());
         this._commandId = this._settings.connect('changed::renderer-command', () => this._restart());
+        this._enabledId = this._settings.connect('changed::enabled', () => this._setEnabled());
         this._monitorsId = Main.layoutManager.connect('monitors-changed', () => this._restart());
         this._launch();
     }
 
     _launch() {
+        if (!this._settings.get_boolean('enabled'))
+            return;
         const file = this._settings.get_string('active-file');
         const command = this._settings.get_strv('renderer-command');
         if (!file || command.length === 0 || !Gio.File.new_for_path(file).query_exists(null))
@@ -67,6 +70,48 @@ export default class MotionExtension extends Extension {
         actions.activate_action(this._paused ? 'pause' : 'play', null);
     }
 
+    _updateFile() {
+        if (!this._settings.get_boolean('enabled'))
+            return;
+        const file = this._settings.get_string('active-file');
+        if (!file || !Gio.File.new_for_path(file).query_exists(null))
+            return;
+        // Swap the file in the running renderer instead of relaunching it, so the
+        // static desktop wallpaper never flashes between wallpapers.
+        if (this._client) {
+            Gio.DBusActionGroup.get(
+                Gio.DBus.session,
+                RENDERER_ID,
+                RENDERER_OBJECT_PATH
+            ).activate_action('set-file', new GLib.Variant('s', file));
+            GLib.timeout_add(GLib.PRIORITY_DEFAULT, 200, () => {
+                this._syncPlayback();
+                return GLib.SOURCE_REMOVE;
+            });
+        } else {
+            this._launch();
+        }
+    }
+
+    _setEnabled() {
+        if (this._settings.get_boolean('enabled')) {
+            if (!this._client)
+                this._launch();
+        } else {
+            this._stop();
+        }
+    }
+
+    _stop() {
+        if (this._restartId) {
+            GLib.source_remove(this._restartId);
+            this._restartId = 0;
+        }
+        this._client?.stop();
+        this._client = null;
+        this._integration.setClient(null);
+    }
+
     _restart() {
         if (this._restartId) {
             GLib.source_remove(this._restartId);
@@ -86,6 +131,8 @@ export default class MotionExtension extends Extension {
             this._settings.disconnect(this._activeId);
         if (this._commandId)
             this._settings.disconnect(this._commandId);
+        if (this._enabledId)
+            this._settings.disconnect(this._enabledId);
         if (this._monitorsId)
             Main.layoutManager.disconnect(this._monitorsId);
         this._policy.disable();
