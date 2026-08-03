@@ -55,6 +55,8 @@ struct HeaderSection {
     spinner: gtk::Spinner,
     refresh_button: gtk::Button,
     settings_button: gtk::Button,
+    next_button: gtk::Button,
+    quit_button: gtk::Button,
     discover_toggle: gtk::ToggleButton,
     library_toggle: gtk::ToggleButton,
     favorites_toggle: gtk::ToggleButton,
@@ -186,6 +188,16 @@ fn build_widgets(application: &adw::Application, settings_available: bool) -> Wi
             gtk::prelude::WidgetExt::activate_action(&window, "win.settings", None).ok();
         }
     });
+    header.next_button.connect_clicked({
+        let window = window.clone();
+        move |_| {
+            gtk::prelude::WidgetExt::activate_action(&window, "win.next-wallpaper", None).ok();
+        }
+    });
+    header.quit_button.connect_clicked({
+        let window = window.clone();
+        move |_| window.close()
+    });
     details.create_playlist_button.connect_clicked({
         let window = window.clone();
         move |_| {
@@ -266,10 +278,25 @@ fn build_header_section() -> HeaderSection {
     }
 
     let settings_button = icon_button("preferences-system-symbolic", "Settings");
+    let next_button = icon_button("go-next-symbolic", "Next wallpaper");
+    let power_button = gtk::ToggleButton::builder()
+        .icon_name("media-playback-stop-symbolic")
+        .tooltip_text("Stop live wallpaper")
+        .build();
+    power_button.add_css_class("flat");
+    if let Some(settings) = operations::settings() {
+        settings.bind("enabled", &power_button, "active").build();
+    }
+    power_button.connect_toggled(update_power_button);
+    update_power_button(&power_button);
+    let quit_button = icon_button("application-exit-symbolic", "Quit");
     let header = adw::HeaderBar::new();
     header.set_title_widget(Some(&adw::WindowTitle::new("Motion", "Live wallpapers")));
     header.pack_start(&mode_switcher);
+    header.pack_end(&quit_button);
     header.pack_end(&settings_button);
+    header.pack_end(&next_button);
+    header.pack_end(&power_button);
 
     HeaderSection {
         header,
@@ -278,6 +305,8 @@ fn build_header_section() -> HeaderSection {
         spinner,
         refresh_button,
         settings_button,
+        next_button,
+        quit_button,
         discover_toggle,
         library_toggle,
         favorites_toggle,
@@ -490,6 +519,13 @@ fn connect_actions(state: &Rc<AppState>) {
         move |_, _| show_new_playlist(&state)
     });
     state.widgets.window.add_action(&playlist_action);
+
+    let next_action = gio::SimpleAction::new("next-wallpaper", None);
+    next_action.connect_activate({
+        let state = Rc::clone(state);
+        move |_, _| next_wallpaper(&state)
+    });
+    state.widgets.window.add_action(&next_action);
 }
 
 fn connect_mode(state: &Rc<AppState>, button: &gtk::ToggleButton, mode: ViewMode) {
@@ -789,6 +825,21 @@ fn finish_download(state: &Rc<AppState>, id: &str, media: &PreparedMedia) {
     toast(state, "Wallpaper is ready");
 }
 
+fn next_wallpaper(state: &Rc<AppState>) {
+    let Some(settings) = state.settings.as_ref() else {
+        toast(
+            state,
+            "Install the Shell extension before switching wallpapers",
+        );
+        return;
+    };
+    match operations::apply_next(&state.catalog, settings, operations::now_epoch()) {
+        Ok(Some(item)) => toast(state, &format!("Now playing: {}", item.wallpaper.title)),
+        Ok(None) => toast(state, "Download more wallpapers to enable switching"),
+        Err(error) => toast(state, &format!("Could not switch wallpaper: {error}")),
+    }
+}
+
 fn apply_selected(state: &Rc<AppState>) {
     let (Some(item), Some(settings)) = (selected_item(state), state.settings.as_ref()) else {
         toast(
@@ -883,11 +934,25 @@ fn show_settings(state: &Rc<AppState>) {
         .icon_name("preferences-system-symbolic")
         .build();
 
+    page.add(&build_engine_group(&settings));
     page.add(&build_pause_group(&settings));
     page.add(&build_resource_group(&settings));
     page.add(&build_rotation_group(state));
     dialog.add(&page);
     dialog.present(Some(&state.widgets.window));
+}
+
+fn build_engine_group(settings: &gio::Settings) -> adw::PreferencesGroup {
+    let engine_group = adw::PreferencesGroup::builder()
+        .title("Live wallpaper")
+        .build();
+    let enabled = adw::SwitchRow::builder()
+        .title("Enable live wallpaper")
+        .subtitle("Turn off to stop the engine and save battery")
+        .build();
+    settings.bind("enabled", &enabled, "active").build();
+    engine_group.add(&enabled);
+    engine_group
 }
 
 fn build_pause_group(settings: &gio::Settings) -> adw::PreferencesGroup {
@@ -1091,6 +1156,16 @@ fn icon_button(icon: &str, tooltip: &str) -> gtk::Button {
         .build();
     button.add_css_class("flat");
     button
+}
+
+fn update_power_button(button: &gtk::ToggleButton) {
+    if button.is_active() {
+        button.set_icon_name("media-playback-stop-symbolic");
+        button.set_tooltip_text(Some("Stop live wallpaper"));
+    } else {
+        button.set_icon_name("media-playback-start-symbolic");
+        button.set_tooltip_text(Some("Start live wallpaper"));
+    }
 }
 
 fn text_button(icon: &str, label: &str) -> gtk::Button {
